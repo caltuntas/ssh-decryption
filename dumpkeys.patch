@@ -1,0 +1,124 @@
+--- node_modules/ssh2/lib/protocol/crypto.js	2025-01-16 15:44:03.000000000 +0300
++++ node_modules/ssh2/lib/protocol/crypto.js	2025-01-03 17:08:32.000000000 +0300
+@@ -462,6 +462,8 @@
+       // Encrypt length field, pad length, payload, and padding
+       const encrypted = this._cipherInstance.update(packet);
+       this._onWrite(encrypted);
++      console.debug('encrypted packet----');
++      console.debug(encrypted.toString('hex'));
+ 
+       // TODO: look into storing seqno as 4-byte buffer and incrementing like we
+       // do for AES-GCM IVs to avoid having to (re)write all 4 bytes every time
+@@ -528,6 +530,9 @@
+     // Encrypts in-place
+     this._instance.encrypt(packet, this.outSeqno);
+ 
++    console.debug('encrypted packet----');
++    console.debug(packet.toString('hex'));
++
+     if (this._macActualLen < this._macLen) {
+       packet = new FastBuffer(packet.buffer,
+                               packet.byteOffset,
+--- node_modules/ssh2/lib/protocol/kex.js	2025-01-16 15:44:03.000000000 +0300
++++ node_modules/ssh2/lib/protocol/kex.js	2025-01-10 00:00:06.000000000 +0300
+@@ -116,6 +116,9 @@
+ 
+   payload[0] = MESSAGE.KEXINIT;
+   randomFillSync(payload, 1, 16);
++  let cookie= payload.subarray(0,16);
++  const debug = self._debug;
++  debug && debug(`Handshake: (local) randomFillSync: ${cookie.toString("hex")}`);
+ 
+   // Zero-fill first_kex_packet_follows and reserved bytes
+   bufferFill(payload, 0, payload.length - 5);
+@@ -537,6 +540,8 @@
+ 
+       const pubKey = this.convertPublicKey(this._dhData);
+       let secret = this.computeSecret(this._dhData);
++      const debug = this._protocol._debug;
++      debug && debug(`Handshake: (local) computeSecret: ${secret.toString("hex")}`);
+       if (secret instanceof Error) {
+         secret.message =
+           `Error while computing DH secret (${this.type}): ${secret.message}`;
+@@ -796,6 +801,7 @@
+         const csCipherInfo = CIPHER_INFO[negotiated.cs.cipher];
+         const scCipherInfo = CIPHER_INFO[negotiated.sc.cipher];
+ 
++        debug && debug(`SECRET: ${secret.toString("hex")}`);
+         const csIV = generateKEXVal(csCipherInfo.ivLen,
+                                     this.hashName,
+                                     secret,
+@@ -852,6 +858,7 @@
+             decipherKey: (!isServer ? scKey : csKey),
+             macInfo: (!isServer ? scMacInfo : csMacInfo),
+             macKey: (!isServer ? scMacKey : csMacKey),
++            //forceNative : true,
+           },
+           outbound: {
+             onWrite: this._protocol._onWrite,
+@@ -861,8 +868,13 @@
+             cipherKey: (isServer ? scKey : csKey),
+             macInfo: (isServer ? scMacInfo : csMacInfo),
+             macKey: (isServer ? scMacKey : csMacKey),
++            //forceNative : true,
+           },
+         };
++        if (this._protocol._debug) {
++          this._protocol._debug('------config------');
++          this._protocol._debug(JSON.stringify(config));
++        }
+         this._protocol._cipher && this._protocol._cipher.free();
+         this._protocol._decipher && this._protocol._decipher.free();
+         this._protocol._cipher = createCipher(config);
+@@ -1290,14 +1302,18 @@
+           asnWriter.endSequence();
+         asnWriter.endSequence();
+ 
+-        return convertToMpint(diffieHellman({
++        console.log(this._keys.privateKey);
++        const dh = diffieHellman({
+           privateKey: this._keys.privateKey,
+           publicKey: createPublicKey({
+             key: asnWriter.buffer,
+             type: 'spki',
+             format: 'der',
+           }),
+-        }));
++        });
++      const priKey = this._keys.privateKey.export({ type: 'pkcs8', format: 'der' });
++      console.log( 'Private Key : ', priKey.toString("hex") )
++        return convertToMpint(dh);
+       } catch (ex) {
+         return ex;
+       }
+@@ -1357,6 +1373,10 @@
+       if (!this._dh && this._prime && this._generator) {
+         this._dh = createDiffieHellman(this._prime, this._generator);
+         this._public = this._dh.generateKeys();
++        const privateKey= this._dh.getPrivateKey();
++        this._protocol._debug && this._protocol._debug(
++          'Private Key='+privateKey.toString('hex')
++        );
+       }
+     }
+     setDHParams(prime, generator) {
+@@ -1520,6 +1540,8 @@
+       if (!this._dh) {
+         this._dh = createDiffieHellmanGroup(this.groupName);
+         this._public = this._dh.generateKeys();
++        const priKey = this._dh.getPrivateKey("hex");
++        console.log( 'Private Key : ', priKey )
+       }
+     }
+     getDHParams() {
+--- node_modules/ssh2/lib/protocol/utils.js	2025-01-16 15:44:03.000000000 +0300
++++ node_modules/ssh2/lib/protocol/utils.js	2025-01-03 12:16:14.000000000 +0300
+@@ -350,6 +350,8 @@
+       proto._debug && proto._debug('Outbound: ... packet queued');
+       return false;
+     }
++    console.debug('unencrypted packet------');
++    console.debug(packet.toString('hex'));
+     proto._cipher.encrypt(packet);
+     return true;
+   },
