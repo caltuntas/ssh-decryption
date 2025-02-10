@@ -1,0 +1,74 @@
+{
+  "inbound": {
+    "seqno": 4,
+    "decipherInfo": {
+      "sslName": "aes-128-ctr",
+      "blockLen": 16,
+      "keyLen": 16,
+      "ivLen": 16,
+      "authLen": 0,
+      "discardLen": 0,
+      "stream": true
+    },
+    "decipherIV": {
+      "type": "Buffer",
+      "data": [
+        84, 129, 50, 27, 105, 26, 93, 31, 66, 174, 67, 96, 17, 236, 228, 238
+      ]
+    },
+    "decipherKey": {
+      "type": "Buffer",
+      "data": [
+        75, 179, 242, 184, 211, 143, 246, 117, 24, 20, 101, 163, 182, 247, 85, 172
+      ]
+    },
+    "macInfo": {
+      "sslName": "sha256",
+      "len": 32,
+      "actualLen": 32,
+      "isETM": false
+    },
+    "macKey": {
+      "type": "Buffer",
+      "data": [
+        198, 20, 70, 236, 30, 223, 63, 133, 17, 205, 20, 162, 96, 59, 85, 61, 49, 181, 16, 170, 125, 44, 226, 44, 125, 254, 113, 25, 248, 249, 21, 42
+      ]
+    }
+  },
+  "outbound": {
+    "seqno": 4,
+    "cipherInfo": {
+      "sslName": "aes-128-ctr",
+      "blockLen": 16,
+      "keyLen": 16,
+      "ivLen": 16,
+      "authLen": 0,
+      "discardLen": 0,
+      "stream": true
+    },
+    "cipherIV": {
+      "type": "Buffer",
+      "data": [
+        109, 200, 34, 255, 143, 105, 111, 113, 107, 192, 1, 162, 55, 158, 104, 155
+      ]
+    },
+    "cipherKey": {
+      "type": "Buffer",
+      "data": [
+        56, 90, 197, 61, 7, 119, 39, 162, 11, 134, 146, 71, 37, 32, 103, 128
+      ]
+    },
+    "macInfo": {
+      "sslName": "sha256",
+      "len": 32,
+      "actualLen": 32,
+      "isETM": false
+    },
+    "macKey": {
+      "type": "Buffer",
+      "data": [
+        183, 237, 109, 138, 52, 125, 212, 27, 4, 34, 59, 180, 47, 214, 49, 80, 105, 4, 46, 61, 56, 225, 123, 86, 22, 159, 14, 177, 21, 10, 97, 53
+      ]
+    }
+  }
+}

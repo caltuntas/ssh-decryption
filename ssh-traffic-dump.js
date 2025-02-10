@@ -2,6 +2,50 @@ const pcap = require("pcap");
 const crypto = require("crypto");
 const config = require("./config.json");
 
+const packetParser = function(binary,initialPos){
+  const packet = binary;
+  let pos = initialPos || 0;
+  const readString = function() {
+    const len_start = pos;
+    const len_end = len_start + 4;
+    const len = packet.subarray(len_start,len_end).readInt32BE();
+    const string_start = len_end;
+    const string_end = string_start + len;
+    const string = packet.subarray(string_start,string_end).toString();
+    pos = string_end ;
+    return string;
+  }
+
+  const readBoolean = function() {
+    const res = packet[pos++];
+    return res;
+  }
+
+  const readObject = function(o) {
+    const obj = {};
+    Object.keys(o).forEach(key => {
+      if(o[key] === 'string') {
+        const val = readString();
+        obj[key] = val;
+      }
+      else if(o[key] === 'boolean') {
+        const val = readBoolean();
+        obj[key] = val;
+      }
+    });
+    return obj;
+  }
+
+  return {
+    readString,
+    readBoolean,
+    readObject
+  };
+
+};
+
+
+
 const pcapFile = "./ssh.pcap";
 const MESSAGE = {
     // Transport layer protocol -- generic (1-19)
@@ -77,7 +121,6 @@ const decipherSC = crypto.createDecipheriv("aes-128-ctr", keySC, ivSC);
 let newKeysSent = false;
 let packet_number =0;
 let clientAddress;
-let serverAddress;
 pcapSession.on("packet", (rawPacket) => {
   const packet = pcap.decode.packet(rawPacket);
   if (packet.payload.ethertype!==2048)
@@ -98,7 +141,7 @@ pcapSession.on("packet", (rawPacket) => {
       console.log("SSH Protocol Version Exchange:");
       console.log(sshData.trim());
     } else if (tcp.data) {
-      let packet_len, padding_len, msg_code;
+      let packet_len, msg_code;
       if (newKeysSent === false) {
         packet_len = tcp.data.subarray(0, 4).readInt32BE(0);
         padding_len = tcp.data[4];
@@ -117,45 +160,22 @@ pcapSession.on("packet", (rawPacket) => {
         console.log(`MAC, ${direction} :`,mac.toString('hex'));
         packet_len = decryptedPacket.subarray(0, 4).readInt32BE(0);
         padding_len = decryptedPacket[4];
-        const payload_len = packet_len - padding_len -1;
-        const payload = decryptedPacket.subarray(5,payload_len+5).toString('hex');
         msg_code = decryptedPacket[5];
         const msg_name = Object.keys(MESSAGE).find(key => MESSAGE[key] === msg_code);
         console.log("Decrypted Packet :", decryptedPacket.toString("hex"));
         console.log(`packet length=${packet_len}`);
         console.log(`message code=${msg_name}`);
         if (msg_code === MESSAGE.USERAUTH_REQUEST) {
-          const username_len_start = 6;
-          const username_len_end = username_len_start + 4;
-          const username_len = decryptedPacket.subarray(username_len_start,username_len_end).readInt32BE();
-          const username_start = username_len_end;
-          const username_end = username_start + username_len + 1;
-          const username = decryptedPacket.subarray(username_start,username_end).toString();
-          const service_name_len_start = username_end-1;
-          const service_name_len_end = username_end + 4;
-          const service_name_len = decryptedPacket.subarray(service_name_len_start, service_name_len_end).readInt32BE();
-          const service_name_start = service_name_len_end -1;
-          const service_name_end = service_name_start + service_name_len -1;
-          const service_name = decryptedPacket.subarray(service_name_start, service_name_end + 1).toString();
-          const method_len_start = service_name_end + 1;
-          const method_len_end = method_len_start + 4;
-          const method_len = decryptedPacket.subarray(method_len_start, method_len_end).readInt32BE();
-          const method_start = method_len_end ;
-          const method_end = method_start + method_len;
-          const method = decryptedPacket.subarray(method_start, method_end).toString();
-          if (method === "password") {
-            const pass_len_start = method_end + 1;
-            const pass_len_end = pass_len_start + 4;
-            const pass_len = decryptedPacket.subarray(pass_len_start, pass_len_end).readInt32BE();
-            const pass_start = pass_len_end;
-            const pass_end = pass_start + pass_len;
-            const pass = decryptedPacket.subarray(pass_start, pass_end).toString();
-            console.log('Username : ' + username);
-            console.log('Password : ' + pass);
+          const parser = packetParser(decryptedPacket,6);
+          const obj = parser.readObject({user:'string',service:'string',method:'string'});
+          if (obj.method === "password") {
+            const passObj = parser.readObject({isChange:'boolean',password:'string'});
+            console.log('Username : ' + obj.user);
+            console.log('Password : ' + passObj.password);
           }
         }
       }
-      if (msg_code == 21) {
+      if (msg_code == MESSAGE.NEWKEYS) {
         newKeysSent = true;
       }
     }
