@@ -25,7 +25,7 @@
  
    payload[0] = MESSAGE.KEXINIT;
    randomFillSync(payload, 1, 16);
-+  let cookie= payload.subarray(0,16);
++  let cookie= payload.subarray(1,16);
 +  const debug = self._debug;
 +  debug && debug(`Handshake: (local) randomFillSync: ${cookie.toString("hex")}`);
  

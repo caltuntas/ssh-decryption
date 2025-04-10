@@ -8,8 +8,8 @@ const algorithms = {
 	  //'diffie-hellman-group-exchange-sha256',
 	  //'diffie-hellman-group14-sha1',
 	  //'diffie-hellman-group-exchange-sha1',
-	  //'diffie-hellman-group16-sha512',
-	  'diffie-hellman-group1-sha1',
+	  'diffie-hellman-group16-sha512',
+	  //'diffie-hellman-group1-sha1',
 	],
 	cipher: [
 	  'aes128-ctr',
@@ -65,11 +65,11 @@ conn.on('ready', () => {
 		});
 	})})
 	.connect({
-		host: process.env.HOST,
+		host: process.env.TARGET_HOST,
 		port: 22,
 		algorithms: algorithms,
-		username: process.env.USERNAME,
-		password: process.env.PASSWORD,
+		username: process.env.TARGET_USERNAME,
+		password: process.env.TARGET_PASSWORD,
 		debug: function(msg) {
 			console.log(msg);
 		},
