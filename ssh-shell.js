@@ -1,5 +1,3 @@
-const { readFileSync } = require('fs');
-
 const { Client } = require('ssh2');
 
 const algorithms = {
@@ -46,21 +44,27 @@ const algorithms = {
 	//serverHostKey: ['ssh-dss', 'ssh-rsa', 'rsa-sha2-256', 'rsa-sha2-512', 'ecdsa-sha2-nistp521', 'ecdsa-sha2-nistp384', 'ecdsa-sha2-nistp256', 'ssh-ed25519'],
   };
 
+const options = {};
+options.algorithms = algorithms;
 
-const conn = new Client();
+const conn = new Client(options);
 conn.on('ready', () => {
-  console.log('Client :: ready');
   conn.shell((err, stream) => {
     if (err) throw err;
-    stream.on('close', () => {
-      console.log('Stream :: close');
+		stream.on('close', (code, signal) => {
+			console.log('Stream :: close :: code: ' + code + ', signal: ' + signal);
       conn.end();
-    }).on('data', (data) => {
-      console.log('OUTPUT: ' + data);
     });
-    stream.end('cd /tmp && ls -lah\nexit\n');
+    stream.on('data', (data) => {
+			console.log('STDOUT: ' + data);
+    });
+    stream.end('cd /tmp\nls -lah\ndf -h\ndu -sh /tmp\nexit\n');
+		stream.stderr.on('data', function err(data) {
+			console.log('STDERR: ' + data);
+		});
   });
-}).connect({
+})
+  .connect({
 		host: process.env.TARGET_HOST,
 		port: 22,
 		username: process.env.TARGET_USERNAME,
@@ -70,4 +74,3 @@ conn.on('ready', () => {
 			console.log(msg);
 		},
 });
-

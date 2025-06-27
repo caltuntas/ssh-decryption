@@ -8,8 +8,8 @@ const algorithms = {
 	  //'diffie-hellman-group-exchange-sha256',
 	  //'diffie-hellman-group14-sha1',
 	  //'diffie-hellman-group-exchange-sha1',
-	  'diffie-hellman-group16-sha512',
-	  //'diffie-hellman-group1-sha1',
+	  //'diffie-hellman-group16-sha512',
+	  'diffie-hellman-group1-sha1',
 	],
 	cipher: [
 	  'aes128-ctr',
@@ -49,16 +49,14 @@ options.algorithms = algorithms;
 
 const conn = new Client(options);
 conn.on('ready', () => {
-	//conn.exec('configure\nshow deviceconfig | match login-banner\nexit\n', { pty: true }, (err, stream) => {
-	conn.exec('cd /tmp && ls -lah', { pty: false }, (err, stream) => {
+	conn.exec('cd /tmp\nls -lah\ndf -h\ndu -sh\nexit\n', { pty: false }, (err, stream) => {
 		if (err) throw err;
-		stream.on('close', function close(code, signal) {
+		stream.on('close', (code, signal) => {
 			console.log('Stream :: close :: code: ' + code + ', signal: ' + signal);
 			conn.end();
 		});
-		stream.on('data', function out(data) {
+		stream.on('data', (data) => {
 			console.log('STDOUT: ' + data);
-			//require('v8').writeHeapSnapshot();
 		});
 		stream.stderr.on('data', function err(data) {
 			console.log('STDERR: ' + data);
@@ -67,10 +65,10 @@ conn.on('ready', () => {
 	.connect({
 		host: process.env.TARGET_HOST,
 		port: 22,
-		algorithms: algorithms,
 		username: process.env.TARGET_USERNAME,
 		password: process.env.TARGET_PASSWORD,
+		algorithms: algorithms,
 		debug: function(msg) {
 			console.log(msg);
 		},
-	});
+});
