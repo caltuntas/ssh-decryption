@@ -47,6 +47,13 @@ const algorithms = {
 const options = {};
 options.algorithms = algorithms;
 
+const commands = `
+whoami
+df -h
+ls -lah
+exit
+
+`;
 const conn = new Client(options);
 conn.on('ready', () => {
   conn.shell((err, stream) => {
@@ -58,7 +65,8 @@ conn.on('ready', () => {
     stream.on('data', (data) => {
 			console.log('STDOUT: ' + data);
     });
-    stream.end('cd /tmp\nls -lah\ndf -h\ndu -sh /tmp\nexit\n');
+    //stream.end('cd /tmp\nls -lah\ndf -h\ndu -sh /tmp\nexit\n');
+    stream.end(commands);
 		stream.stderr.on('data', function err(data) {
 			console.log('STDERR: ' + data);
 		});

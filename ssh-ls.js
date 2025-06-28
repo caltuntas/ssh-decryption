@@ -47,9 +47,17 @@ const algorithms = {
 const options = {};
 options.algorithms = algorithms;
 
+const commands = `
+whoami
+df -h
+ls -lah
+exit
+
+`;
+
 const conn = new Client(options);
 conn.on('ready', () => {
-	conn.exec('cd /tmp\nls -lah\ndf -h\ndu -sh\nexit\n', { pty: false }, (err, stream) => {
+	conn.exec(commands, { pty: false }, (err, stream) => {
 		if (err) throw err;
 		stream.on('close', (code, signal) => {
 			console.log('Stream :: close :: code: ' + code + ', signal: ' + signal);
