@@ -117,10 +117,8 @@
        proto._debug && proto._debug('Outbound: ... packet queued');
        return false;
      }
-+    if (proto._debug) {
-+      proto._debug('unencrypted packet------');
-+      proto._debug(packet.toString('hex'));
-+    }
++    proto._debug && proto._debug('unencrypted packet------');
++    proto._debug && proto._debug(packet.toString('hex'));
      proto._cipher.encrypt(packet);
      return true;
    },

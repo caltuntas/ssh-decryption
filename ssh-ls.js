@@ -8,8 +8,8 @@ const algorithms = {
 	  //'diffie-hellman-group-exchange-sha256',
 	  //'diffie-hellman-group14-sha1',
 	  //'diffie-hellman-group-exchange-sha1',
-	  //'diffie-hellman-group16-sha512',
-	  'diffie-hellman-group1-sha1',
+	  'diffie-hellman-group16-sha512',
+	  //'diffie-hellman-group1-sha1',
 	],
 	cipher: [
 	  'aes128-ctr',

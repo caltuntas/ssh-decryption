@@ -121,6 +121,7 @@ const decipherSC = crypto.createDecipheriv("aes-128-ctr", keySC, ivSC);
 let newKeysSent = false;
 let packet_number =0;
 let clientAddress;
+let sessionSport, sessionDport;
 pcapSession.on("packet", (rawPacket) => {
   const packet = pcap.decode.packet(rawPacket);
   if (packet.payload.ethertype!==2048)
@@ -138,9 +139,11 @@ pcapSession.on("packet", (rawPacket) => {
   if (tcp && tcp.data && (tcp.sport === 22 || tcp.dport === 22)) {
     const sshData = tcp.data ? tcp.data.toString("utf-8") : "";
     if (sshData.startsWith("SSH-")) {
+      sessionSport = tcp.sport;
+      sessionDport = tcp.dport;
       console.log("SSH Protocol Version Exchange:");
       console.log(sshData.trim());
-    } else if (tcp.data) {
+    } else if (tcp.data && sessionDport && sessionSport && (sessionDport==tcp.dport || sessionDport==tcp.sport) && (sessionSport==tcp.sport || sessionSport==tcp.dport)) {
       let packet_len, msg_code;
       if (newKeysSent === false) {
         packet_len = tcp.data.subarray(0, 4).readInt32BE(0);
