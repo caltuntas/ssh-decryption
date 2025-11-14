@@ -150,13 +150,22 @@ pcapSession.on("packet", (rawPacket) => {
         padding_len = tcp.data[4];
         msg_code = tcp.data[5];
       } else {
+        const MAC_LEN=32;
         let decryptedPacket;
-        let encryptedPacket = tcp.data.subarray(0,tcp.data.length-32);
-        let mac = tcp.data.subarray(tcp.data.length-32);
+        let encryptedPacket;
+        if (config.inbound.macInfo.isETM){
+          encryptedPacket = tcp.data.subarray(4,tcp.data.length-MAC_LEN);
+        }else {
+          encryptedPacket = tcp.data.subarray(0,tcp.data.length-MAC_LEN);
+        }
+        let mac = tcp.data.subarray(tcp.data.length-MAC_LEN);
         if(direction === 'CS') {
             decryptedPacket = decipherCS.update(encryptedPacket);
         } else if (direction === 'SC') {
             decryptedPacket = decipherSC.update(encryptedPacket);
+        }
+        if(config.inbound.macInfo.isETM){
+          decryptedPacket =Buffer.concat([tcp.data.subarray(0,4),decryptedPacket]);
         }
         console.log(`Entire Packet, ${direction} :`, tcp.data.toString("hex"));
         console.log(`Encrypted SSH Packet, ${direction} :`, encryptedPacket.toString("hex"));
