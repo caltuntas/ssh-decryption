@@ -12,6 +12,31 @@ const MIN_MESSAGE_CODE = 0;
 //https://datatracker.ietf.org/doc/html/rfc4253#section-6.1
 const MAX_PACKET_LEN = 35000;
 
+const sshSession = (function () {
+  let sourcePort;
+  let destinationPort;
+  const init = function (tcp) {
+    sourcePort = tcp.sport;
+    destinationPort = tcp.dport;
+    console.log("SSH Protocol Version Exchange:");
+  };
+
+  const hasPacket = function (tcp) {
+    return (
+      tcp.data &&
+      sourcePort &&
+      destinationPort &&
+      (destinationPort == tcp.dport || destinationPort == tcp.sport) &&
+      (sourcePort == tcp.sport || sourcePort == tcp.dport)
+    );
+  };
+
+  return {
+    init,
+    hasPacket,
+  };
+})();
+
 const packetParser = function (binary, initialPos) {
   const packet = binary;
   let pos = initialPos || 0;
@@ -208,7 +233,6 @@ function decryptSession(file, packetCount) {
   let newKeysSent = false;
   let packet_number = 0;
   let clientAddress;
-  let sessionSport, sessionDport;
   pcapSession.on("packet", (rawPacket) => {
     const packet = pcap.decode.packet(rawPacket);
     if (packet.payload.ethertype !== EtherTypes.IPv4) return;
@@ -226,17 +250,9 @@ function decryptSession(file, packetCount) {
     if (tcp && tcp.data && (tcp.sport === 22 || tcp.dport === 22)) {
       const sshData = tcp.data ? tcp.data.toString("utf-8") : "";
       if (sshData.startsWith("SSH-")) {
-        sessionSport = tcp.sport;
-        sessionDport = tcp.dport;
-        console.log("SSH Protocol Version Exchange:");
+        sshSession.init(tcp);
         console.log(sshData.trim());
-      } else if (
-        tcp.data &&
-        sessionDport &&
-        sessionSport &&
-        (sessionDport == tcp.dport || sessionDport == tcp.sport) &&
-        (sessionSport == tcp.sport || sessionSport == tcp.dport)
-      ) {
+      } else if (sshSession.hasPacket(tcp)) {
         let packet_len, msg_code;
         if (newKeysSent === false) {
           packet_len = tcp.data.subarray(0, 4).readInt32BE(0);
@@ -292,5 +308,6 @@ async function main() {
   const packetCount = await countPackets(pcapFile);
   decryptSession(pcapFile, packetCount);
 }
+
 
 main();
