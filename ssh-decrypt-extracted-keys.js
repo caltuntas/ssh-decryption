@@ -1,7 +1,10 @@
 const pcap = require("pcap");
 const crypto = require("crypto");
-const config = require("./config.json");
 
+const key1=Buffer.from(process.env.KEY1,"hex");
+const key2=Buffer.from(process.env.KEY2,"hex");
+const iv1=Buffer.from(process.env.IV1,"hex");
+const iv2=Buffer.from(process.env.IV2,"hex");
 const directionKeys =new Map();
 const packetParser = function(binary,initialPos){
   const packet = binary;
@@ -48,6 +51,13 @@ const packetParser = function(binary,initialPos){
 
 
 const pcapFile = "./sshdump.pcap";
+const EtherTypes = {
+  IPv4:2048
+};
+const Directions = {
+  ServerToClient:"SC",
+  ClientToServer:"CS",
+};
 const MESSAGE = {
     // Transport layer protocol -- generic (1-19)
     DISCONNECT: 1,
@@ -117,10 +127,10 @@ function decrementIV(iv) {
     const hex = iv.toString("hex");
     const ivBigInt = BigInt("0x" + hex);
     const newIvBigInt = ivBigInt - 1n;
-    let newIvHex = newIvBigInt.toString(16).padStart(32, '0');
-    return Buffer.from(newIvHex, 'hex');
+    return Buffer.from(newIvBigInt.toString(16), 'hex');
 }
 
+const isETM=false;
 function findDirectionKeys(key1,key2,iv1,iv2,buffer,direction){
   verifyKeyAndIv =function(key,iv,buffer,packetCount) {
     for(let i=packetCount; i>=0; i--) {
@@ -128,13 +138,13 @@ function findDirectionKeys(key1,key2,iv1,iv2,buffer,direction){
       const MAC_LEN = 32;
       let decryptedPacket;
       let encryptedPacket;
-      if (config.inbound.macInfo.isETM) {
+      if (isETM) {
         encryptedPacket = buffer.subarray(4, buffer.length - MAC_LEN);
       } else {
         encryptedPacket = buffer.subarray(0, buffer.length - MAC_LEN);
       }
       decryptedPacket = decipher.update(encryptedPacket);
-      if (config.inbound.macInfo.isETM) {
+      if (isETM) {
         decryptedPacket = Buffer.concat([buffer.subarray(0, 4), decryptedPacket]);
       }
       packet_len = decryptedPacket.subarray(0, 4).readInt32BE(0);
@@ -167,10 +177,6 @@ function findDirectionKeys(key1,key2,iv1,iv2,buffer,direction){
   }
 }
 
-const ivCS = Buffer.from(config.outbound.cipherIV);
-const keyCS = Buffer.from(config.outbound.cipherKey);
-const ivSC = Buffer.from(config.inbound.decipherIV);
-const keySC = Buffer.from(config.inbound.decipherKey);
 let decipherCS;
 let decipherSC;
 let newKeysSent = false;
@@ -179,17 +185,15 @@ let clientAddress;
 let sessionSport, sessionDport;
 pcapSession.on("packet", (rawPacket) => {
   const packet = pcap.decode.packet(rawPacket);
-  if (packet.payload.ethertype!==2048)
+  if (packet.payload.ethertype!==EtherTypes.IPv4)
     return;
-  //console.log(packet.link_type);
-  //console.log('packet:', JSON.stringify(packet));
   if (packet_number == 0) {
     clientAddress = packet.payload.payload.saddr.toString();
     serverAddress = packet.payload.payload.daddr.toString();
   }
   packet_number++;
   const tcp = packet.payload.payload.payload;
-  const direction = packet.payload.payload.saddr.toString() === clientAddress ? 'CS':'SC';
+  const direction = packet.payload.payload.saddr.toString() === clientAddress ? Directions.ClientToServer:Directions.ServerToClient;
 
   if (tcp && tcp.data && (tcp.sport === 22 || tcp.dport === 22)) {
     const sshData = tcp.data ? tcp.data.toString("utf-8") : "";
@@ -205,36 +209,26 @@ pcapSession.on("packet", (rawPacket) => {
         padding_len = tcp.data[4];
         msg_code = tcp.data[5];
       } else {
-        /*
-        key=db,a3,49,5f,4b,61,28,ef,0f,0b,74,e3,a2,f9,29,b3,
-        key=6d,fd,9f,b1,fe,ef,2a,cf,38,78,03,27,89,bc,05,e8,
-        iv value=6e,56,39,df,ef,2f,11,3b,81,56,4b,77,87,bf,87,dc,
-        iv value=b2,27,a1,41,3e,39,be,35,11,3e,c7,94,6a,86,6c,97,
-        */
-        let key2=Buffer.from("dba3495f4b6128ef0f0b74e3a2f929b3","hex");
-        let key1=Buffer.from("6dfd9fb1feef2acf3878032789bc05e8","hex");
-        let iv1 =Buffer.from("6e5639dfef2f113b81564b7787bf87dc","hex");
-        let iv2 =Buffer.from("b227a1413e39be35113ec7946a866c97","hex");
         findDirectionKeys(key1,key2,iv1,iv2,tcp.data,direction);
-        if (!decipherCS && direction=='CS')
-          decipherCS = crypto.createDecipheriv("aes-128-ctr", directionKeys.get("CS").key, directionKeys.get("CS").iv);
-        if (!decipherSC && direction==='SC')
-          decipherSC = crypto.createDecipheriv("aes-128-ctr", directionKeys.get("SC").key, directionKeys.get("SC").iv);
+        if (!decipherCS && direction===Directions.ClientToServer)
+          decipherCS = crypto.createDecipheriv("aes-128-ctr", directionKeys.get(Directions.ClientToServer).key, directionKeys.get(Directions.ClientToServer).iv);
+        if (!decipherSC && direction===Directions.ServerToClient)
+          decipherSC = crypto.createDecipheriv("aes-128-ctr", directionKeys.get(Directions.ServerToClient).key, directionKeys.get(Directions.ServerToClient).iv);
         const MAC_LEN=32;
         let decryptedPacket;
         let encryptedPacket;
-        if (config.inbound.macInfo.isETM){
+        if (isETM){
           encryptedPacket = tcp.data.subarray(4,tcp.data.length-MAC_LEN);
         }else {
           encryptedPacket = tcp.data.subarray(0,tcp.data.length-MAC_LEN);
         }
         let mac = tcp.data.subarray(tcp.data.length-MAC_LEN);
-        if(direction === 'CS') {
+        if(direction === Directions.ClientToServer) {
             decryptedPacket = decipherCS.update(encryptedPacket);
-        } else if (direction === 'SC') {
+        } else if (direction === Directions.ServerToClient) {
             decryptedPacket = decipherSC.update(encryptedPacket);
         }
-        if(config.inbound.macInfo.isETM){
+        if(isETM){
           decryptedPacket =Buffer.concat([tcp.data.subarray(0,4),decryptedPacket]);
         }
         console.log(`Entire Packet, ${direction} :`, tcp.data.toString("hex"));
