@@ -8,14 +8,17 @@ const iv2 = Buffer.from(process.env.IV2, "hex");
 const decipherCache = new Map();
 //https://www.rfc-editor.org/rfc/rfc4251.html#section-7
 const MAX_MESSAGE_CODE = 255;
-const MIN_MESSAGE_CODE = 0;
 //https://datatracker.ietf.org/doc/html/rfc4253#section-6.1
 const MAX_PACKET_LEN = 35000;
 
 const sshSession = (function () {
   let sourcePort;
   let destinationPort;
-  const init = function (tcp) {
+  let clientAddress;
+  let serverAddress;
+  const start = function (tcp,packet) {
+    clientAddress = packet.payload.payload.saddr.toString();
+    serverAddress = packet.payload.payload.daddr.toString();
     sourcePort = tcp.sport;
     destinationPort = tcp.dport;
     console.log("SSH Protocol Version Exchange:");
@@ -31,9 +34,19 @@ const sshSession = (function () {
     );
   };
 
+  const getDirection = function(packet){
+    const direction =
+      packet.payload.payload.saddr.toString() === clientAddress &&
+      packet.payload.payload.daddr.toString() === serverAddress
+        ? Directions.ClientToServer
+        : Directions.ServerToClient;
+    return direction;
+  }
+
   return {
-    init,
+    start,
     hasPacket,
+    getDirection,
   };
 })();
 
@@ -85,51 +98,36 @@ const Directions = {
   ServerToClient: "SC",
   ClientToServer: "CS",
 };
+
+//https://datatracker.ietf.org/doc/html/rfc4250#section-4.1.2
 const MESSAGE = {
-  // Transport layer protocol -- generic (1-19)
   DISCONNECT: 1,
   IGNORE: 2,
   UNIMPLEMENTED: 3,
   DEBUG: 4,
   SERVICE_REQUEST: 5,
   SERVICE_ACCEPT: 6,
-
-  // Transport layer protocol -- algorithm negotiation (20-29)
   KEXINIT: 20,
   NEWKEYS: 21,
-
-  // Transport layer protocol -- key exchange method-specific (30-49)
   KEXDH_INIT: 30,
   KEXDH_REPLY: 31,
-
   KEXDH_GEX_GROUP: 31,
   KEXDH_GEX_INIT: 32,
   KEXDH_GEX_REPLY: 33,
   KEXDH_GEX_REQUEST: 34,
-
   KEXECDH_INIT: 30,
   KEXECDH_REPLY: 31,
-
-  // User auth protocol -- generic (50-59)
   USERAUTH_REQUEST: 50,
   USERAUTH_FAILURE: 51,
   USERAUTH_SUCCESS: 52,
   USERAUTH_BANNER: 53,
-
-  // User auth protocol -- user auth method-specific (60-79)
   USERAUTH_PASSWD_CHANGEREQ: 60,
-
   USERAUTH_PK_OK: 60,
-
   USERAUTH_INFO_REQUEST: 60,
   USERAUTH_INFO_RESPONSE: 61,
-
-  // Connection protocol -- generic (80-89)
   GLOBAL_REQUEST: 80,
   REQUEST_SUCCESS: 81,
   REQUEST_FAILURE: 82,
-
-  // Connection protocol -- channel-related (90-127)
   CHANNEL_OPEN: 90,
   CHANNEL_OPEN_CONFIRMATION: 91,
   CHANNEL_OPEN_FAILURE: 92,
@@ -232,27 +230,19 @@ function decryptSession(file, packetCount) {
   const pcapSession = pcap.createOfflineSession(file, "tcp");
   let newKeysSent = false;
   let packet_number = 0;
-  let clientAddress;
   pcapSession.on("packet", (rawPacket) => {
     const packet = pcap.decode.packet(rawPacket);
     if (packet.payload.ethertype !== EtherTypes.IPv4) return;
-    if (packet_number == 0) {
-      clientAddress = packet.payload.payload.saddr.toString();
-      serverAddress = packet.payload.payload.daddr.toString();
-    }
     packet_number++;
     const tcp = packet.payload.payload.payload;
-    const direction =
-      packet.payload.payload.saddr.toString() === clientAddress
-        ? Directions.ClientToServer
-        : Directions.ServerToClient;
 
     if (tcp && tcp.data && (tcp.sport === 22 || tcp.dport === 22)) {
       const sshData = tcp.data ? tcp.data.toString("utf-8") : "";
       if (sshData.startsWith("SSH-")) {
-        sshSession.init(tcp);
+        sshSession.start(tcp,packet);
         console.log(sshData.trim());
       } else if (sshSession.hasPacket(tcp)) {
+        const direction = sshSession.getDirection(packet);
         let packet_len, msg_code;
         if (newKeysSent === false) {
           packet_len = tcp.data.subarray(0, 4).readInt32BE(0);
