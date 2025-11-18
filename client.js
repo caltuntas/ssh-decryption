@@ -7,9 +7,9 @@ const algorithms = {
 	cipher: [
 	  'aes128-ctr',
 	],
-	//hmac: [
-	//  'hmac-sha2-256',
-	//],
+	hmac: [
+	  'hmac-sha2-256',
+	],
   };
 
 const options = {};
@@ -34,9 +34,9 @@ const config = {
   port,
   username,
   algorithms: algorithms,
-  //debug: function(msg) {
-  //	console.log(msg);
-  //},
+  debug: function(msg) {
+  	console.log(msg);
+  },
   readyTimeout: 20000
 };
 
