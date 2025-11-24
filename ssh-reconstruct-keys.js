@@ -141,6 +141,40 @@ const MESSAGE = {
   // Local extensions (192-155)
 };
 
+const SSH_MSG_KEXINIT={
+  cookie: "buffer:16",
+  kex_algorithms: "string",
+  server_host_key_algorithms: "string",
+  encryption_algorithms_client_to_server: "string",
+  encryption_algorithms_server_to_client: "string",
+  mac_algorithms_client_to_server: "string",
+  mac_algorithms_server_to_client: "string",
+  compression_algorithms_client_to_server: "string",
+  compression_algorithms_server_to_client: "string",
+  languages_client_to_server: "string",
+  languages_server_to_client: "string",
+  first_kex_packet_follows: "boolean",
+  reserved: "buffer:4",
+};
+
+const KEXDH_REPLY={
+  host_key: "mpint",
+  f: "mpint",
+  signature: "mpint",
+};
+
+const KEXDH_GEX_REQUEST={
+  min: "uint32",
+  n: "uint32",
+  max: "uint32",
+};
+
+const USERAUTH_REQUEST={
+  user: "string",
+  service: "string",
+  method: "string",
+};
+
 const pcapSession = pcap.createOfflineSession(pcapFile, "tcp");
 
 let ivCS;
@@ -194,35 +228,16 @@ pcapSession.on("packet", (rawPacket) => {
         console.log(payload.toString("hex"));
         const parser = packetParser(payloadWithoutMessageType, 0);
         if (msg_code === MESSAGE.KEXINIT) {
-          const obj = parser.readObject({
-            cookie: "buffer:16",
-            kex_algorithms: "string",
-            server_host_key_algorithms: "string",
-            encryption_algorithms_client_to_server: "string",
-            encryption_algorithms_server_to_client: "string",
-            mac_algorithms_client_to_server: "string",
-            mac_algorithms_server_to_client: "string",
-            compression_algorithms_client_to_server: "string",
-            compression_algorithms_server_to_client: "string",
-            languages_client_to_server: "string",
-            languages_server_to_client: "string",
-            first_kex_packet_follows: "boolean",
-            reserved: "buffer:4",
-          });
+          const obj = parser.readObject(SSH_MSG_KEXINIT);
           if (direction === "CS") {
             clientKexInitPayload = Buffer.from(payload);
           } else if (direction === "SC") {
             serverKexInitPayload = Buffer.from(payload);
           }
-
           console.log(obj);
         } else if (msg_code === MESSAGE.KEXDH_GEX_REQUEST) {
           console.log("direction = " + direction);
-          const obj = parser.readObject({
-            min: "uint32",
-            n: "uint32",
-            max: "uint32",
-          });
+          const obj = parser.readObject(KEXDH_GEX_REQUEST);
           console.log(obj);
         } else if (msg_code === MESSAGE.KEXDH_GEX_GROUP && 1 === 2) {
           const obj = parser.readObject({
@@ -243,11 +258,7 @@ pcapSession.on("packet", (rawPacket) => {
           msg_code === MESSAGE.KEXDH_GEX_REPLY ||
           msg_code === MESSAGE.KEXDH_REPLY
         ) {
-          const obj = parser.readObject({
-            host_key: "mpint",
-            f: "mpint",
-            signature: "mpint",
-          });
+          const obj = parser.readObject(KEXDH_REPLY);
           const hostKeyParser = packetParser(obj.host_key, 0);
           const hostKeyObj = hostKeyParser.readObject({
             type: "string",
@@ -282,11 +293,7 @@ pcapSession.on("packet", (rawPacket) => {
         console.log(`message code=${msg_name}`);
         if (msg_code === MESSAGE.USERAUTH_REQUEST) {
           const parser = packetParser(decryptedPacket, 6);
-          const obj = parser.readObject({
-            user: "string",
-            service: "string",
-            method: "string",
-          });
+          const obj = parser.readObject(USERAUTH_REQUEST);
           if (obj.method === "password") {
             const passObj = parser.readObject({
               isChange: "boolean",
