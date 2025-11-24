@@ -235,16 +235,6 @@ pcapSession.on("packet", (rawPacket) => {
             serverKexInitPayload = Buffer.from(payload);
           }
           console.log(obj);
-        } else if (msg_code === MESSAGE.KEXDH_GEX_REQUEST) {
-          console.log("direction = " + direction);
-          const obj = parser.readObject(KEXDH_GEX_REQUEST);
-          console.log(obj);
-        } else if (msg_code === MESSAGE.KEXDH_GEX_GROUP && 1 === 2) {
-          const obj = parser.readObject({
-            p: "mpint",
-            g: "mpint",
-          });
-          console.log(obj);
         } else if (
           msg_code === MESSAGE.KEXDH_GEX_INIT ||
           msg_code === MESSAGE.KEXDH_INIT
@@ -259,13 +249,7 @@ pcapSession.on("packet", (rawPacket) => {
           msg_code === MESSAGE.KEXDH_REPLY
         ) {
           const obj = parser.readObject(KEXDH_REPLY);
-          const hostKeyParser = packetParser(obj.host_key, 0);
-          const hostKeyObj = hostKeyParser.readObject({
-            type: "string",
-            public_key: "mpint",
-          });
           serverDhGexReply = obj;
-          console.log(hostKeyObj);
         }
       } else {
         let decryptedPacket;
