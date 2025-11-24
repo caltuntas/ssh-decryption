@@ -162,8 +162,6 @@ let sessionId;
 pcapSession.on("packet", (rawPacket) => {
   const packet = pcap.decode.packet(rawPacket);
   if (packet.payload.ethertype !== 2048) return;
-  //console.log(packet.link_type);
-  //console.log('packet:', JSON.stringify(packet));
   if (packet_number == 0) {
     clientAddress = packet.payload.payload.saddr.toString();
     serverAddress = packet.payload.payload.daddr.toString();
@@ -172,9 +170,6 @@ pcapSession.on("packet", (rawPacket) => {
   const tcp = packet.payload.payload.payload;
   const direction =
     packet.payload.payload.saddr.toString() === clientAddress ? "CS" : "SC";
-  let clientKexInit;
-  let serverKexInit;
-  let clientDhGexRequest;
 
   if (tcp && tcp.data && (tcp.sport === 22 || tcp.dport === 22)) {
     const sshData = tcp.data ? tcp.data.toString("utf-8") : "";
@@ -215,10 +210,8 @@ pcapSession.on("packet", (rawPacket) => {
             reserved: "buffer:4",
           });
           if (direction === "CS") {
-            clientKexInit = obj;
             clientKexInitPayload = Buffer.from(payload);
           } else if (direction === "SC") {
-            serverKexInit = obj;
             serverKexInitPayload = Buffer.from(payload);
           }
 
@@ -230,7 +223,6 @@ pcapSession.on("packet", (rawPacket) => {
             n: "uint32",
             max: "uint32",
           });
-          if (direction === "CS") clientDhGexRequest = obj;
           console.log(obj);
         } else if (msg_code === MESSAGE.KEXDH_GEX_GROUP && 1 === 2) {
           const obj = parser.readObject({
@@ -366,17 +358,16 @@ pcapSession.on("packet", (rawPacket) => {
    o  Integrity key server to client: HASH(K || H || "F" || session_id)
 
        */
-        const newSecret = Buffer.allocUnsafe(4 + secret.length);
-        newSecret.writeUInt32BE(secret.length, 0);
-        newSecret.set(secret, 4);
-        secret = newSecret;
-        ivCS = deriveKey(secret, sessionId, sessionId, "A", "sha1");
+        const K = Buffer.allocUnsafe(4 + secret.length);
+        K.writeUInt32BE(secret.length, 0);
+        K.set(secret, 4);
+        ivCS = deriveKey(K, sessionId, sessionId, "A", "sha1");
         ivCS = ivCS.subarray(0, 16);
-        ivSC = deriveKey(secret, sessionId, sessionId, "B", "sha1");
+        ivSC = deriveKey(K, sessionId, sessionId, "B", "sha1");
         ivSC = ivSC.subarray(0, 16);
-        keyCS = deriveKey(secret, sessionId, sessionId, "C", "sha1");
+        keyCS = deriveKey(K, sessionId, sessionId, "C", "sha1");
         keyCS = keyCS.subarray(0, 16);
-        keySC = deriveKey(secret, sessionId, sessionId, "D", "sha1");
+        keySC = deriveKey(K, sessionId, sessionId, "D", "sha1");
         keySC = keySC.subarray(0, 16);
         decipherCS = crypto.createDecipheriv("aes-128-ctr", keyCS, ivCS);
         decipherSC = crypto.createDecipheriv("aes-128-ctr", keySC, ivSC);
@@ -394,11 +385,11 @@ pcapSession.on("complete", () => {
   console.log("Finished reading pcap file.");
 });
 
-function deriveKey(K, H, sessionId, X, hashAlgo) {
+function deriveKey(K, H, sessionId, char, hashAlgo) {
   const hash = crypto.createHash(hashAlgo);
   hash.update(K);
   hash.update(H);
-  hash.update(X);
+  hash.update(char);
   hash.update(sessionId);
   return hash.digest();
 }
