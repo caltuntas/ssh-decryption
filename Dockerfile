@@ -12,4 +12,4 @@ COPY . .
 
 RUN patch -p0 < dumpkeys.patch
 
-CMD ["/bin/bash", "-c", "./start.sh"]
+ENTRYPOINT ["./start.sh"]

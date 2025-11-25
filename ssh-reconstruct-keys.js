@@ -1,6 +1,6 @@
 const pcap = require("pcap");
 const crypto = require("crypto");
-const pcapFile = "./ssh3.pcap";
+const pcapFile = "./ssh.pcap";
 
 const packetParser = function (binary, initialPos) {
   const packet = binary;
@@ -163,12 +163,6 @@ const KEXDH_REPLY={
   signature: "mpint",
 };
 
-const KEXDH_GEX_REQUEST={
-  min: "uint32",
-  n: "uint32",
-  max: "uint32",
-};
-
 const USERAUTH_REQUEST={
   user: "string",
   service: "string",
@@ -289,9 +283,10 @@ pcapSession.on("packet", (rawPacket) => {
         }
       }
       if (msg_code == MESSAGE.NEWKEYS) {
-        const privKey =
-          "497568fef6d00f4026642640302d4f20ddb4fa479d6a6761b10f097e3f9b876b7722092761bf3acaf00ca31152d9aac0a60a26a90edf9b5ccf180d6c5f75890b26415dcf1f34b777b63cb9a91db67fbb3989e9479d3d8b9059ad4071af4220be421d49656156a736f7022fc3b2baeab68295c7010844031af703f04e4f41f4dd";
-        const clientPrivateKey = Buffer.from(privKey, "hex");
+        const privKey = process.argv[2];
+        const key=privKey.trim();
+        console.log("private key passed="+key);
+        const clientPrivateKey = Buffer.from(key, "hex");
 
         const dh = crypto.createDiffieHellmanGroup("modp2");
         const dhKey = crypto.createDiffieHellman(

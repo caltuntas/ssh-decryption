@@ -40,10 +40,11 @@
        if (secret instanceof Error) {
          secret.message =
            `Error while computing DH secret (${this.type}): ${secret.message}`;
-@@ -796,6 +801,7 @@
+@@ -796,6 +801,8 @@
          const csCipherInfo = CIPHER_INFO[negotiated.cs.cipher];
          const scCipherInfo = CIPHER_INFO[negotiated.sc.cipher];
  
++        debug && debug(`sessionID: ${this.sessionID.toString("hex")}`);
 +        debug && debug(`SECRET: ${secret.toString("hex")}`);
          const csIV = generateKEXVal(csCipherInfo.ivLen,
                                      this.hashName,
